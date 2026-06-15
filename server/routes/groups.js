@@ -198,7 +198,7 @@ router.get('/:groupId/balances', (req, res) => {
 });
 
 // Get detailed audit trail for a user
-router.get('/:groupId/balances/:userId', (req, res) => {
+router.get('/:groupId/audit/:userId', (req, res) => {
   const { groupId, userId } = req.params;
   const uid = parseInt(userId);
   const EXCHANGE_RATE = 83.0;
@@ -208,50 +208,80 @@ router.get('/:groupId/balances/:userId', (req, res) => {
     return amount;
   };
 
-  db.all('SELECT * FROM expenses WHERE group_id = ?', [groupId], (err, allExpenses) => {
-    db.all('SELECT * FROM expense_splits WHERE expense_id IN (SELECT id FROM expenses WHERE group_id = ?)', [groupId], (err, allSplits) => {
-      db.all('SELECT * FROM settlements WHERE group_id = ? AND (paid_by = ? OR paid_to = ?)', [groupId, uid, uid], (err, settlements) => {
-        
-        const ledger = [];
-        let runningBalance = 0;
-        
-        // 1. Expenses paid by this user
-        const expensesPaid = allExpenses.filter(e => e.paid_by === uid);
-        expensesPaid.forEach(e => {
-           const inr = convertToINR(e.amount, e.currency);
-           ledger.push({ date: e.date, type: 'paid_expense', description: e.description, amount: e.amount, currency: e.currency, amountINR: inr, impact: inr });
+  // Need usernames for 'paidBy' field
+  db.all('SELECT id, username FROM users', [], (err, users) => {
+    const userMap = {};
+    users.forEach(u => userMap[u.id] = u.username);
+
+    db.all('SELECT * FROM expenses WHERE group_id = ?', [groupId], (err, allExpenses) => {
+      db.all('SELECT * FROM expense_splits WHERE expense_id IN (SELECT id FROM expenses WHERE group_id = ?)', [groupId], (err, allSplits) => {
+        db.all('SELECT * FROM settlements WHERE group_id = ? AND (paid_by = ? OR paid_to = ?)', [groupId, uid, uid], (err, settlements) => {
+          
+          const ledger = [];
+          let runningBalance = 0;
+          
+          // Group expenses
+          allExpenses.forEach(e => {
+             const userSplit = allSplits.find(s => s.expense_id === e.id && s.user_id === uid);
+             const userPaid = e.paid_by === uid;
+             
+             if (userPaid || userSplit) {
+               const totalAmountINR = convertToINR(e.amount, e.currency);
+               const myShareINR = userSplit ? convertToINR(userSplit.owed_amount, e.currency) : 0;
+               const paidINR = userPaid ? totalAmountINR : 0;
+               const impact = paidINR - myShareINR;
+               
+               ledger.push({
+                 date: e.date,
+                 type: 'expense',
+                 description: e.description,
+                 notes: null, // we don't store notes in DB, but if we did, put it here
+                 totalAmount: totalAmountINR,
+                 paidBy: userMap[e.paid_by],
+                 myShare: myShareINR,
+                 impact: impact
+               });
+             }
+          });
+          
+          // Add settlements
+          settlements.forEach(s => {
+             const inr = convertToINR(s.amount, s.currency);
+             if (s.paid_by === uid) {
+               ledger.push({
+                 date: s.date,
+                 type: 'settlement',
+                 description: `Paid settlement to ${userMap[s.paid_to]}`,
+                 totalAmount: inr,
+                 paidBy: userMap[uid],
+                 myShare: 0,
+                 impact: inr
+               });
+             } else {
+               ledger.push({
+                 date: s.date,
+                 type: 'settlement',
+                 description: `Received settlement from ${userMap[s.paid_by]}`,
+                 totalAmount: inr,
+                 paidBy: userMap[s.paid_by],
+                 myShare: inr, // technically they owed it to you
+                 impact: -inr
+               });
+             }
+          });
+          
+          ledger.sort((a, b) => new Date(a.date) - new Date(b.date));
+          
+          ledger.forEach(item => {
+             runningBalance += item.impact;
+             item.runningBalance = Math.round(runningBalance * 100) / 100;
+             item.impact = Math.round(item.impact * 100) / 100;
+             item.totalAmount = Math.round(item.totalAmount * 100) / 100;
+             item.myShare = Math.round(item.myShare * 100) / 100;
+          });
+          
+          res.json({ ledger, finalBalance: Math.round(runningBalance * 100) / 100 });
         });
-        
-        // 2. Expenses where user owed a share
-        const splitsOwed = allSplits.filter(s => s.user_id === uid);
-        splitsOwed.forEach(s => {
-           const e = allExpenses.find(ex => ex.id === s.expense_id);
-           if (e) {
-             const inr = convertToINR(s.owed_amount, e.currency);
-             ledger.push({ date: e.date, type: 'owed_split', description: `Share of: ${e.description}`, amount: s.owed_amount, currency: e.currency, amountINR: inr, impact: -inr });
-           }
-        });
-        
-        // 3. Settlements
-        settlements.forEach(s => {
-           const inr = convertToINR(s.amount, s.currency);
-           if (s.paid_by === uid) {
-             ledger.push({ date: s.date, type: 'settlement_paid', description: `Paid settlement to user ${s.paid_to}`, amount: s.amount, currency: s.currency, amountINR: inr, impact: inr });
-           } else {
-             ledger.push({ date: s.date, type: 'settlement_received', description: `Received settlement from user ${s.paid_by}`, amount: s.amount, currency: s.currency, amountINR: inr, impact: -inr });
-           }
-        });
-        
-        ledger.sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        ledger.forEach(item => {
-           runningBalance += item.impact;
-           item.runningBalance = Math.round(runningBalance * 100) / 100;
-           item.impact = Math.round(item.impact * 100) / 100;
-           item.amountINR = Math.round(item.amountINR * 100) / 100;
-        });
-        
-        res.json({ ledger, finalBalance: Math.round(runningBalance * 100) / 100 });
       });
     });
   });
