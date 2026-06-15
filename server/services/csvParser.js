@@ -28,11 +28,11 @@ const parseCSV = (filePath) => {
   return new Promise((resolve, reject) => {
     
     // Fetch all groups and members globally
-    db.all('SELECT id, name FROM groups', [], (err, groups) => {
-      if (err || groups.length === 0) return reject(new Error('Groups not found'));
+    db.all('SELECT * FROM groups', [], (err, groups) => {
+      if (err) return reject(err);
       
-      const flatmatesGroup = groups.find(g => g.name === 'Flatmates');
-      const goaGroup = groups.find(g => g.name === 'Goa Trip');
+      const flatmatesGroup = groups.find(g => g.id === 1);
+      const goaGroup = groups.find(g => g.id === 2);
       
       db.all(`
         SELECT u.id, u.username, gm.joined_date, gm.left_date, gm.group_id 
@@ -174,6 +174,8 @@ const parseCSV = (filePath) => {
             
             if (outOfBounds.length > 0) r.anomalyFlags.outOfBounds = outOfBounds;
             if (external.length > 0) r.anomalyFlags.externalMembers = external;
+            
+            r.split_with = splitWith.join(';');
 
             // Duplicate Grouping (token overlap on same day/amount/currency)
             let hash = `${r.parsedDate}_${r.parsedAmount}_${r.parsedCurrency}`;
