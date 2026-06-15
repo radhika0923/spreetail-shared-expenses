@@ -12,7 +12,7 @@ const Layout = ({ user, setAuth }) => {
   const [activeTab, setActiveTab] = useState('Dashboard');
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/groups/user/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/user/${user.id}`)
       .then(res => res.json())
       .then(data => {
         setGroups(data);
@@ -29,7 +29,7 @@ const Layout = ({ user, setAuth }) => {
 
   const handleResetDb = () => {
     if (window.confirm("Are you sure you want to reset the database? This is irreversible.")) {
-      fetch('http://localhost:5000/api/admin/reset', { method: 'POST' })
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/reset`, { method: 'POST' })
         .then(() => {
           alert('Database reset complete. Please restart server if needed.');
           window.location.reload();

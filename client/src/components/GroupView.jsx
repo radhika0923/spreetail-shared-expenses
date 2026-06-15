@@ -22,9 +22,9 @@ const GroupView = ({ user, groupId }) => {
   const fetchData = async () => {
     try {
       const [memRes, expRes, balRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/groups/${groupId}/members`),
-        fetch(`http://localhost:5000/api/expenses/${groupId}`),
-        fetch(`http://localhost:5000/api/groups/${groupId}/balances`)
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`),
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/${groupId}`),
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/balances`)
       ]);
       setMembers(await memRes.json());
       setExpenses(await expRes.json());
@@ -42,7 +42,7 @@ const GroupView = ({ user, groupId }) => {
     e.preventDefault();
     if (!newMemberName) return;
     try {
-      await fetch(`http://localhost:5000/api/groups/${groupId}/members`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: newMemberName })
@@ -54,7 +54,7 @@ const GroupView = ({ user, groupId }) => {
 
   const handleRemoveMember = async (userId) => {
     try {
-      await fetch(`http://localhost:5000/api/groups/${groupId}/members/${userId}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members/${userId}`, { method: 'DELETE' });
       fetchData();
     } catch (err) { console.error(err); }
   };
@@ -69,7 +69,7 @@ const GroupView = ({ user, groupId }) => {
     const splits = members.map(m => ({ user_id: m.id, owed_amount: perPerson }));
     
     try {
-      await fetch(`http://localhost:5000/api/expenses/${groupId}`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/${groupId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,7 +91,7 @@ const GroupView = ({ user, groupId }) => {
     if (!amount || !settleForm.paid_to) return;
 
     try {
-      await fetch(`http://localhost:5000/api/expenses/${groupId}/settle`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/${groupId}/settle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ const GroupView = ({ user, groupId }) => {
 
   const handleViewAudit = async (userId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/groups/${groupId}/balances/${userId}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/balances/${userId}`);
       const data = await res.json();
       setAuditData(data);
       const m = members.find(u => u.id === userId);

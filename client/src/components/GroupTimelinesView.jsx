@@ -10,14 +10,14 @@ const GroupTimelinesView = ({ user, groupId }) => {
 
   useEffect(() => {
     if (!groupId) return;
-    fetch(`http://localhost:5000/api/groups/user/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/user/${user.id}`)
       .then(res => res.json())
       .then(data => {
         const group = data.find(g => g.id.toString() === groupId.toString());
         if (group) setGroupName(group.name);
       });
 
-    fetch(`http://localhost:5000/api/groups/${groupId}/members`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`)
       .then(res => res.json())
       .then(data => setMembers(data));
   }, [groupId, user.id]);

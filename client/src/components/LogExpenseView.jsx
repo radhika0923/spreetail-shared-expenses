@@ -22,7 +22,7 @@ const LogExpenseView = ({ user, groupId }) => {
 
   useEffect(() => {
     if (!groupId) return;
-    fetch(`http://localhost:5000/api/groups/${groupId}/members`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`)
       .then(res => res.json())
       .then(data => {
         setMembers(data);
@@ -38,7 +38,7 @@ const LogExpenseView = ({ user, groupId }) => {
     const splits = splitWith.map(uid => ({ user_id: uid, owed_amount: perPerson }));
 
     try {
-      const res = await fetch(`http://localhost:5000/api/expenses/${groupId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/${groupId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paid_by: paidBy, description: desc, amount, currency, date, split_type: splitType, splits })
@@ -60,7 +60,7 @@ const LogExpenseView = ({ user, groupId }) => {
     if (!sFrom || !sTo || !sAmount) return alert("Fill all required fields");
     
     try {
-      const res = await fetch(`http://localhost:5000/api/expenses/${groupId}/settle`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/${groupId}/settle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paid_by: sFrom, paid_to: sTo, amount: sAmount, currency: sCurrency, date: sDate, notes: sNotes })

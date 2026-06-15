@@ -7,7 +7,7 @@ const AuditLedgerView = ({ user, groupId }) => {
 
   useEffect(() => {
     if (!groupId) return;
-    fetch(`http://localhost:5000/api/groups/${groupId}/members`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/members`)
       .then(res => res.json())
       .then(data => {
         setMembers(data);
@@ -19,7 +19,7 @@ const AuditLedgerView = ({ user, groupId }) => {
 
   useEffect(() => {
     if (!groupId || !selectedMemberId) return;
-    fetch(`http://localhost:5000/api/groups/${groupId}/audit/${selectedMemberId}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/audit/${selectedMemberId}`)
       .then(res => res.json())
       .then(data => setAuditData(data))
       .catch(err => console.error(err));

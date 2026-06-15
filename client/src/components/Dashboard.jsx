@@ -10,7 +10,7 @@ const Dashboard = ({ user, setAuth }) => {
   const [globalAuditData, setGlobalAuditData] = useState({ groupedLedger: {}, globalFinalBalance: 0 });
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/groups/user/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/user/${user.id}`)
       .then(res => res.json())
       .then(data => {
         setGroups(data);
@@ -21,7 +21,7 @@ const Dashboard = ({ user, setAuth }) => {
 
   const handleGlobalAudit = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/groups/user/${user.id}/audit`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/user/${user.id}/audit`);
       const data = await res.json();
       setGlobalAuditData(data);
       setShowGlobalAudit(true);

@@ -8,7 +8,7 @@ const DashboardView = ({ user, groupId }) => {
     if (!groupId) return;
     
     // Fetch group details
-    fetch(`http://localhost:5000/api/groups/user/${user.id}`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/user/${user.id}`)
       .then(res => res.json())
       .then(data => {
         const group = data.find(g => g.id.toString() === groupId.toString());
@@ -16,7 +16,7 @@ const DashboardView = ({ user, groupId }) => {
       });
 
     // Fetch balances
-    fetch(`http://localhost:5000/api/groups/${groupId}/balances`)
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups/${groupId}/balances`)
       .then(res => res.json())
       .then(data => setBalancesData(data))
       .catch(err => console.error(err));

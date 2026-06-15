@@ -14,7 +14,7 @@ const CsvUploader = () => {
   const [resolutions, setResolutions] = useState({});
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/groups')
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/groups`)
       .then(res => res.json())
       .then(data => setGroups(data))
       .catch(console.error);
@@ -31,7 +31,7 @@ const CsvUploader = () => {
     formData.append('file', file);
     
     try {
-      const response = await fetch(`http://localhost:5000/api/expenses/global/upload`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/global/upload`, {
         method: 'POST', body: formData
       });
       if (!response.ok) throw new Error('Upload failed');
@@ -140,7 +140,7 @@ const CsvUploader = () => {
         finalExpenses.push(exp);
       });
 
-      const response = await fetch(`http://localhost:5000/api/expenses/global/import`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/expenses/global/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ expenses: finalExpenses })
