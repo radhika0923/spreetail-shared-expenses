@@ -8,6 +8,7 @@ const CsvUploader = () => {
   const [error, setError] = useState(null);
   const [exchangeRate, setExchangeRate] = useState(83.0);
   const [successLogs, setSuccessLogs] = useState(null);
+  const [cleanData, setCleanData] = useState(null);
   const [groups, setGroups] = useState([]);
   
   const [resolutions, setResolutions] = useState({});
@@ -147,6 +148,7 @@ const CsvUploader = () => {
       
       if (response.ok) {
         setSuccessLogs(logs);
+        setCleanData(finalExpenses);
       } else {
         setError('Import failed');
       }
@@ -163,6 +165,29 @@ const CsvUploader = () => {
       }
     });
   }
+
+  const downloadCleanCSV = () => {
+    if (!cleanData) return;
+    const headers = ['Date', 'Description', 'Amount', 'Currency', 'Paid By', 'Split With'];
+    const rows = cleanData.map(exp => [
+      exp.parsedDate || exp.date,
+      `"${(exp.description || '').replace(/"/g, '""')}"`,
+      exp.parsedAmount || exp.amount,
+      exp.parsedCurrency || exp.currency || 'INR',
+      exp.parsedPaidBy || '',
+      `"${(exp.split_with || '').replace(/"/g, '""')}"`
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'cleaned_expenses.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
@@ -188,8 +213,12 @@ const CsvUploader = () => {
                   <div key={i} style={{ marginBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '0.75rem' }}>{log}</div>
                ))}
             </div>
-            <div style={{ textAlign: 'right', marginTop: '1.5rem' }}>
-               <button className="btn btn-primary" onClick={() => { setSuccessLogs(null); setData(null); setFile(null); }}>Import Another File</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+               <button className="btn" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff' }} onClick={downloadCleanCSV}>
+                 <FileText size={16} style={{ display: 'inline', marginRight: '6px', marginBottom: '-2px' }} />
+                 Download Cleaned CSV
+               </button>
+               <button className="btn btn-primary" onClick={() => { setSuccessLogs(null); setData(null); setFile(null); setCleanData(null); }}>Import Another File</button>
             </div>
           </div>
         ) : !data ? (
@@ -330,6 +359,18 @@ const CsvUploader = () => {
                       {/* INLINE ANOMALY ALERTS */}
                       {hasOtherAnomalies && (
                         <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                           {af.foreignCurrency && (
+                              <div style={{ fontSize: '0.8rem' }}>
+                                <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}><AlertCircle size={12} style={{display:'inline', marginBottom:'-2px'}}/> [INFO] FOREIGN_CURRENCY: </span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Transaction is in {row.parsedCurrency}. It will be converted to INR at ₹{exchangeRate} per USD (Total: ₹{(row.parsedAmount * exchangeRate).toFixed(2)}).</span>
+                                <div style={{ marginTop: '0.5rem' }}>
+                                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                     <input type="checkbox" checked={true} readOnly style={{accentColor: 'var(--primary-color)'}}/> Apply Global USD Conversion Rate
+                                   </label>
+                                </div>
+                              </div>
+                           )}
+                           
                            {af.ambiguousDate && (
                               <div style={{ fontSize: '0.8rem' }}>
                                 <span style={{ color: 'var(--warning-color)', fontWeight: 'bold' }}><AlertTriangle size={12} style={{display:'inline', marginBottom:'-2px'}}/> [MEDIUM] DATE_AMBIGUOUS: </span>

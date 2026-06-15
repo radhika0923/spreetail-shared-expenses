@@ -27,7 +27,7 @@ router.post('/global/upload', upload.single('file'), async (req, res) => {
 
 // Global Confirm import
 router.post('/global/import', (req, res) => {
-  const { expenses } = req.body; 
+  const { expenses } = req.body;
 
   if (!expenses || !Array.isArray(expenses)) return res.status(400).json({ error: 'Invalid payload' });
 
@@ -38,69 +38,69 @@ router.post('/global/import', (req, res) => {
     users.forEach(u => userMap[u.username.toLowerCase()] = u.id);
 
     const runQuery = (query, params) => new Promise((resolve, reject) => {
-       db.run(query, params, function(err) {
-          if (err) reject(err);
-          else resolve(this.lastID);
-       });
+      db.run(query, params, function (err) {
+        if (err) reject(err);
+        else resolve(this.lastID);
+      });
     });
 
     try {
       await runQuery('BEGIN TRANSACTION', []);
-      
+
       for (let exp of expenses) {
         let amount = exp.parsedAmount || 0;
         let currency = exp.parsedCurrency || 'INR';
         const targetGroupId = exp.targetGroupId;
         if (!targetGroupId) continue;
-        
+
         // Exchange Rate Override from UI
         if (exp.exchangeRateApplied && currency === 'USD') {
-           amount = amount * exp.exchangeRateApplied;
-           currency = 'INR'; // Normalize to INR in DB
+          amount = amount * exp.exchangeRateApplied;
+          currency = 'INR'; // Normalize to INR in DB
         }
-        
+
         const paidById = userMap[exp.parsedPaidBy?.toLowerCase()];
         if (!paidById) continue; // Skip if payer couldn't be resolved
 
         if (exp.isSettlement) {
-           const desc = exp.description.toLowerCase();
-           let paidToId = null;
-           for (const [uname, uid] of Object.entries(userMap)) {
-              if (desc.includes(uname) && uid !== paidById) {
-                 paidToId = uid;
-                 break;
-              }
-           }
-           if (paidToId) {
-             await runQuery('INSERT INTO settlements (group_id, paid_by, paid_to, amount, currency, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-               [targetGroupId, paidById, paidToId, amount, currency, exp.parsedDate || exp.date, exp.description]
-             );
-           }
+          const desc = exp.description.toLowerCase();
+          let paidToId = null;
+          for (const [uname, uid] of Object.entries(userMap)) {
+            if (desc.includes(uname) && uid !== paidById) {
+              paidToId = uid;
+              break;
+            }
+          }
+          if (paidToId) {
+            await runQuery('INSERT INTO settlements (group_id, paid_by, paid_to, amount, currency, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [targetGroupId, paidById, paidToId, amount, currency, exp.parsedDate || exp.date, exp.description]
+            );
+          }
         } else {
-           const splitType = exp.parsedSplitType || 'equal';
-           const expenseId = await runQuery('INSERT INTO expenses (group_id, paid_by, description, amount, currency, date, split_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-             [targetGroupId, paidById, exp.description, amount, currency, exp.parsedDate || exp.date, splitType]
-           );
-                
-           // Determine split logic
-           let splitUsers = exp.split_with ? exp.split_with.split(';').map(n => n.trim().toLowerCase()).filter(n => userMap[n]) : [];
-           if (splitUsers.length === 0) splitUsers = [exp.parsedPaidBy.toLowerCase()];
-                
-           if (splitType === 'percentage' && exp.normalizedWeights) {
-              for (const [uname, pct] of Object.entries(exp.normalizedWeights)) {
-                 const uid = userMap[uname.toLowerCase()];
-                 if (uid) {
-                    const owed = (amount * (pct / 100)).toFixed(2);
-                    await runQuery('INSERT INTO expense_splits (expense_id, user_id, owed_amount) VALUES (?, ?, ?)', [expenseId, uid, owed]);
-                 }
+          const splitType = exp.parsedSplitType || 'equal';
+          const expenseId = await runQuery('INSERT INTO expenses (group_id, paid_by, description, amount, currency, date, split_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [targetGroupId, paidById, exp.description, amount, currency, exp.parsedDate || exp.date, splitType]
+          );
+
+          // Determine split logic
+          let splitUsers = exp.split_with ? exp.split_with.split(';').map(n => n.trim().toLowerCase()).filter(n => userMap[n]) : [];
+          if (splitUsers.length === 0) splitUsers = [exp.parsedPaidBy.toLowerCase()];
+
+          if (splitType === 'percentage' && exp.normalizedWeights) {
+            for (const [uname, pct] of Object.entries(exp.normalizedWeights)) {
+              const uid = userMap[uname.toLowerCase()];
+              if (uid) {
+                const owed = (amount * (pct / 100)).toFixed(2);
+                await runQuery('INSERT INTO expense_splits (expense_id, user_id, owed_amount) VALUES (?, ?, ?)', [expenseId, uid, owed]);
               }
-           } else {
-              // Equal or share split
-              const perPerson = (amount / splitUsers.length).toFixed(2);
-              for (const uname of splitUsers) {
-                 await runQuery('INSERT INTO expense_splits (expense_id, user_id, owed_amount) VALUES (?, ?, ?)', [expenseId, userMap[uname], perPerson]);
-              }
-           }
+            }
+          } else {
+            // Equal or share split
+            const perPerson = (amount / splitUsers.length).toFixed(2);
+            for (const uname of splitUsers) {
+              await runQuery('INSERT INTO expense_splits (expense_id, user_id, owed_amount) VALUES (?, ?, ?)', [expenseId, userMap[uname], perPerson]);
+            }
+          }
         }
       }
 
@@ -118,21 +118,21 @@ router.post('/global/import', (req, res) => {
 router.post('/:groupId', (req, res) => {
   const { groupId } = req.params;
   const { paid_by, description, amount, currency = 'INR', date, split_type, splits } = req.body;
-  
+
   if (!paid_by || !amount || !date || !splits) return res.status(400).json({ error: 'Missing required fields' });
 
   db.serialize(() => {
     db.run('BEGIN TRANSACTION');
-    
+
     db.run('INSERT INTO expenses (group_id, paid_by, description, amount, currency, date, split_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [groupId, paid_by, description, amount, currency, date, split_type], function(err) {
+      [groupId, paid_by, description, amount, currency, date, split_type], function (err) {
         if (err) {
           db.run('ROLLBACK');
           return res.status(500).json({ error: 'Failed to create expense' });
         }
-        
+
         const expenseId = this.lastID;
-        
+
         // Insert splits
         let hasError = false;
         splits.forEach(split => {
@@ -141,10 +141,10 @@ router.post('/:groupId', (req, res) => {
               if (err) hasError = true;
             });
         });
-        
+
         if (hasError) {
-           db.run('ROLLBACK');
-           return res.status(500).json({ error: 'Failed to create splits' });
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: 'Failed to create splits' });
         }
 
         db.run('COMMIT', (err) => {
@@ -159,11 +159,11 @@ router.post('/:groupId', (req, res) => {
 router.post('/:groupId/settle', (req, res) => {
   const { groupId } = req.params;
   const { paid_by, paid_to, amount, currency = 'INR', date, notes } = req.body;
-  
+
   if (!paid_by || !paid_to || !amount || !date) return res.status(400).json({ error: 'Missing required fields' });
-  
+
   db.run('INSERT INTO settlements (group_id, paid_by, paid_to, amount, currency, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [groupId, paid_by, paid_to, amount, currency, date, notes], function(err) {
+    [groupId, paid_by, paid_to, amount, currency, date, notes], function (err) {
       if (err) return res.status(500).json({ error: 'Database error' });
       res.status(201).json({ message: 'Settlement recorded', id: this.lastID });
     });
